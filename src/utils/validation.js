@@ -7,6 +7,7 @@ const signupDataValidation = (req) => {
   const isValidFields = Object.keys(signupData).every((key) =>
     requiredFields.includes(key),
   );
+
   if (!isValidFields) {
     throw new Error("Invalid fields in request");
   }
@@ -19,6 +20,20 @@ const signupDataValidation = (req) => {
   }
 };
 
+const postsDataValidation = (req) => {
+  const requiredFields = ["author", "content", "images"];
+  const postsData = req.body;
+
+  const isValidFields = Object.keys(postsData).every((key) =>
+    requiredFields.includes(key),
+  );
+
+  if (!isValidFields) {
+    throw new Error("Invalid fields in request");
+  }
+};
+
 module.exports = {
   signupDataValidation,
+  postsDataValidation,
 };

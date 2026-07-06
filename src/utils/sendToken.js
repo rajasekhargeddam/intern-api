@@ -1,5 +1,10 @@
 const jwt = require("jsonwebtoken");
 
+const sanitizeUser = (user) => {
+  const { password, ...sanitizedUser } = user.toObject();
+  return sanitizedUser;
+};
+
 const sendToken = async (user, res) => {
   const token = user.getJWT();
 
@@ -13,6 +18,7 @@ const sendToken = async (user, res) => {
   return res.status(201).json({
     message: "Authentication successful",
     success: true,
+    user: sanitizeUser(user),
   });
 };
 
