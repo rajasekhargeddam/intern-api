@@ -10,6 +10,12 @@ const authUser = async (req, res, next) => {
     }
     const decode = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decode.id);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found. Please log in again.",
+      });
+    }
     req.user = user;
     next();
   } catch (err) {
