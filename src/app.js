@@ -7,6 +7,7 @@ const dotenv = require("dotenv").config();
 const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
 const postRouter = require("./routes/posts");
+const adminRoute = require("./routes/admin");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,8 @@ app.use(cookieParser());
 app.use("/auth", authRouter);
 app.use("/profile", profileRouter);
 app.use("/posts", postRouter);
+app.use("/admin", adminRoute);
+
 connectDB()
   .then(() => {
     app.listen(PORT, () => {

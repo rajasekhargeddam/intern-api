@@ -33,7 +33,30 @@ const postsDataValidation = (req) => {
   }
 };
 
+const validateProfileUpdates = (updates) => {
+  const allowedUpdates = [
+    "firstname",
+    "lastname",
+    "bio",
+    "gender",
+    "removeProfileImage",
+  ];
+
+  const receivedUpdates = Object.keys(updates);
+
+  const isValidUpdate = receivedUpdates.every((field) =>
+    allowedUpdates.includes(field)
+  );
+
+  if (!isValidUpdate) {
+    throw new Error("Invalid profile update fields");
+  }
+
+  return true;
+};
+
 module.exports = {
+  validateProfileUpdates,
   signupDataValidation,
   postsDataValidation,
 };

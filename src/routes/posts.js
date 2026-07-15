@@ -1,12 +1,12 @@
 const express = require("express");
 
 const Post = require("../models/Post");
-const authUser = require("../middleware/authUser");
+const authenticate = require("../middleware/authenticate");
 const { postsDataValidation } = require("../utils/validation");
 
 const postRouter = express.Router();
 
-postRouter.post("/", authUser, async (req, res) => {
+postRouter.post("/", authenticate, async (req, res) => {
   try {
     postsDataValidation(req);
     // Process the valid post data
@@ -42,7 +42,7 @@ postRouter.post("/", authUser, async (req, res) => {
   }
 });
 
-postRouter.get("/", authUser, async (req, res) => {
+postRouter.get("/", authenticate, async (req, res) => {
   try {
     const posts = await Post.find()
       .populate("author", "username email")
