@@ -21,15 +21,20 @@ const signupDataValidation = (req) => {
 };
 
 const postsDataValidation = (req) => {
-  const requiredFields = ["author", "content", "images"];
+  const allowedFields = ["content"];
+
   const postsData = req.body;
 
   const isValidFields = Object.keys(postsData).every((key) =>
-    requiredFields.includes(key),
+    allowedFields.includes(key)
   );
 
   if (!isValidFields) {
     throw new Error("Invalid fields in request");
+  }
+
+  if (!postsData.content?.trim()) {
+    throw new Error("Content is required");
   }
 };
 

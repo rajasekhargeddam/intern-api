@@ -1,32 +1,16 @@
-const express = require('express');
+const express = require("express");
 
 const User = require("../models/User");
 const { signupDataValidation } = require("../utils/validation");
 const sendToken = require("../utils/sendToken");
+const createUser = require("../utils/createUser");
 
 const authRouter = express.Router();
 
 authRouter.post("/signup", async (req, res) => {
   try {
     signupDataValidation(req);
-    const { username, email } = req.body;
-
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
-    });
-
-    if (existingUser) {
-      if (existingUser.email === email) {
-        throw new Error("Email alreay exist");
-      }
-
-      if (existingUser.username === username) {
-        throw new Error("Username already exist");
-      }
-    }
-
-    const newUser = new User(req.body);
-    await newUser.save();
+    const newUser = await createUser(req);
     sendToken(newUser, res);
   } catch (err) {
     console.log(err.message);
@@ -41,7 +25,7 @@ authRouter.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user || !user.comparePassword(password)) {
+    if (!user || !(await user.comparePassword(password))) {
       throw new Error("Invalid Credentials");
     }
 
