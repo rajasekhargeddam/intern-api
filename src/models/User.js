@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const AppError = require("../utils/AppError");
 const dotenv = require("dotenv").config();
 
 const userSchema = new mongoose.Schema(
@@ -34,7 +35,7 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       validate(value) {
         if (!validator.isEmail(value)) {
-          throw new Error("Invalid email formate..");
+          throw new AppError("Invalid email format", 400);
         }
       },
     },
@@ -45,7 +46,7 @@ const userSchema = new mongoose.Schema(
         "https://static.vecteezy.com/system/resources/thumbnails/067/451/114/small/avatar-default-user-profile-icon-gender-neutral-silhouette-simple-flat-profile-picture-symbol-user-account-dp-sign-best-for-social-media-icons-web-and-app-design-illustration-vector.jpg",
       validate(value) {
         if (!validator.isURL) {
-          throw new Error("Invalid profile URL");
+          throw new AppError("Invalid profile URL", 400);
         }
       },
     },

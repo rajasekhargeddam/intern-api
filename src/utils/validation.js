@@ -1,4 +1,5 @@
 const validator = require("validator");
+const AppError = require("./AppError");
 
 const signupDataValidation = (req) => {
   const requiredFields = ["username", "email", "password"];
@@ -9,13 +10,14 @@ const signupDataValidation = (req) => {
   );
 
   if (!isValidFields) {
-    throw new Error("Invalid fields in request");
+    throw new AppError("Invalid fields in request", 400);
   }
 
   const { password } = signupData;
   if (!validator.isStrongPassword(password)) {
-    throw new Error(
+    throw new AppError(
       "Password must be at least 6 characters long and include uppercase letters, lowercase letters, numbers, and symbols",
+      400,
     );
   }
 };
@@ -30,11 +32,11 @@ const postsDataValidation = (req) => {
   );
 
   if (!isValidFields) {
-    throw new Error("Invalid fields in request");
+    throw new AppError("Invalid fields in request", 400);
   }
 
   if (!postsData.content?.trim()) {
-    throw new Error("Content is required");
+    throw new AppError("Content is required", 400);
   }
 };
 
@@ -54,7 +56,7 @@ const validateProfileUpdates = (updates) => {
   );
 
   if (!isValidUpdate) {
-    throw new Error("Invalid profile update fields");
+    throw new AppError("Invalid profile update fields", 400);
   }
 
   return true;

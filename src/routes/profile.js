@@ -3,7 +3,6 @@ const express = require("express");
 const authenticate = require("../middleware/authenticate");
 const upload = require("../middleware/upload");
 const { validateProfileUpdates } = require("../utils/validation");
-const User = require("../models/User");
 const updateUser = require("../utils/updateUser");
 
 const profileRouter = express.Router();
@@ -21,7 +20,7 @@ profileRouter.patch(
   "/edit",
   authenticate,
   upload.single("profileImage"),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       validateProfileUpdates(req.body);
 
@@ -32,12 +31,7 @@ profileRouter.patch(
         user: userDetails,
       });
     } catch (error) {
-      console.error(error);
-
-      res.status(400).json({
-        success: false,
-        message: error.message || "Failed to update profile",
-      });
+      next(error);
     }
   },
 );

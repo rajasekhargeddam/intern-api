@@ -12,14 +12,13 @@ postRouter.post(
   "/",
   authenticate,
   upload.array("images", 4),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       postsDataValidation(req);
 
       const { content } = req.body;
       const author = req.user._id;
 
-      // Upload images to Cloudinary
       let images = [];
 
       if (req.files?.length) {
@@ -52,15 +51,12 @@ postRouter.post(
         post,
       });
     } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message,
-      });
+      next(error);
     }
   },
 );
 
-postRouter.get("/", authenticate, async (req, res) => {
+postRouter.get("/", authenticate, async (req, res, next) => {
   try {
     const posts = await Post.find()
       .populate("author", "username email")
@@ -70,7 +66,7 @@ postRouter.get("/", authenticate, async (req, res) => {
       posts,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 

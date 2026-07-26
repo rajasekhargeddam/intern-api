@@ -1,19 +1,19 @@
 const User = require("../models/User");
-
+const AppError = require("./AppError");
 
 const createUser = async (req) => {
-    const { username, email } = req.body;
+  const { username, email } = req.body;
   const existingUser = await User.findOne({
     $or: [{ email }, { username }],
   });
 
   if (existingUser) {
     if (existingUser.email === email) {
-      throw new Error("Email alreay exist");
+      throw new AppError("Email already exists", 400);
     }
 
     if (existingUser.username === username) {
-      throw new Error("Username already exist");
+      throw new AppError("Username already exists", 400);
     }
   }
 

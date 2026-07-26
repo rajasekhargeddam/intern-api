@@ -1,6 +1,8 @@
+const AppError = require("../utils/AppError");
+
 const adminAuth = (req, res, next) => {
   if (req.user.role !== "admin") {
-    res.status(400).json({ message: "anotherized admin request" });
+    return next(new AppError("Unauthorized admin request", 403));
   }
   next();
 };

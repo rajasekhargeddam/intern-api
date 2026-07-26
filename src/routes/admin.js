@@ -9,46 +9,50 @@ const {
 const upload = require("../middleware/upload");
 const createUser = require("../utils/createUser");
 const updateUser = require("../utils/updateUser");
-const authRouter = require("./auth");
+const AppError = require("../utils/AppError");
 
 const adminRoute = express.Router();
 
-adminRoute.get("/users", authenticate, adminAuth, async (req, res) => {
+adminRoute.get("/users", authenticate, adminAuth, async (req, res, next) => {
   try {
-    const data = await User.find().select("-password");
+    const userId = req.user._id;
+    const data = await User.find({ _id: { $ne: userId } })
+      .select("-password")
+      .sort({ createdAt: -1 });
 
-    res.status(200).json({ message: "data fetched successfull", data });
+    res.status(200).json({ success: true, message: "Data fetched successfully", data });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    next(err);
   }
 });
 
-adminRoute.get("/user/:userId", authenticate, adminAuth, async (req, res) => {
+adminRoute.get("/user/:userId", authenticate, adminAuth, async (req, res, next) => {
   try {
     const { userId } = req.params;
     const user = await User.findById(userId).select("-password");
 
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
     res.status(200).json({
       success: true,
-      message: "fetched user successfully",
+      message: "Fetched user successfully",
       user,
     });
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message || "Failed to update user details",
-    });
+    next(error);
   }
 });
 
-adminRoute.post("/user", authenticate, adminAuth, async (req, res) => {
+adminRoute.post("/user", authenticate, adminAuth, async (req, res, next) => {
   try {
     signupDataValidation(req);
 
     const newUser = await createUser(req);
-    res.status(200).json({ message: "User Created succesfully", newUser });
+    res.status(201).json({ success: true, message: "User created successfully", newUser });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    next(err);
   }
 });
 
@@ -57,7 +61,7 @@ adminRoute.patch(
   authenticate,
   adminAuth,
   upload.single("profileImage"),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       validateProfileUpdates(req.body);
       const userId = req.params.id;
@@ -69,27 +73,19 @@ adminRoute.patch(
         user: userDetails,
       });
     } catch (error) {
-      console.error(error);
-
-      res.status(400).json({
-        success: false,
-        message: error.message || "Failed to update user details",
-      });
+      next(error);
     }
   },
 );
 
-adminRoute.delete("/user/:id", authenticate, adminAuth, async (req, res) => {
+adminRoute.delete("/user/:id", authenticate, adminAuth, async (req, res, next) => {
   try {
     const userId = req.params.id;
 
     const deletedUser = await User.findByIdAndDelete(userId);
 
     if (!deletedUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      new AppError("User not found", 404);
     }
 
     res.status(200).json({
@@ -97,12 +93,7 @@ adminRoute.delete("/user/:id", authenticate, adminAuth, async (req, res) => {
       message: "User deleted successfully",
     });
   } catch (error) {
-    res.status(200).json(
-      res.status(400).json({
-        success: false,
-        message: error.message || "Failed to update user details",
-      }),
-    );
+    next(error);
   }
 });
 

@@ -31,6 +31,15 @@ app.use("/profile", profileRouter);
 app.use("/posts", postRouter);
 app.use("/admin", adminRoute);
 
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+  });
+});
+
 connectDB()
   .then(() => {
     app.listen(PORT, () => {
@@ -38,5 +47,5 @@ connectDB()
     });
   })
   .catch((err) => {
-    console.error("Database cannot be connected!!");
+    console.error("Database cannot be connected!!", err);
   });

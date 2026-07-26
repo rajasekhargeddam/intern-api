@@ -1,14 +1,16 @@
 const User = require("../models/User");
+const AppError = require("./AppError");
 const uploadToCloudinary = require("./uploadToCloudinary");
 
 const updateUser = async (req, userId) => {
   const user = await User.findById(userId);
 
   if (!user) {
-    return res.status(404).json({
-      success: false,
-      message: "User not found",
-    });
+    throw new AppError("User not found", 404);
+  }
+
+  if (user.role === "admin") {
+    throw new AppError("Unauthorized admin request", 403);
   }
 
   const { firstname, lastname, bio, gender, removeProfileImage } = req.body;
