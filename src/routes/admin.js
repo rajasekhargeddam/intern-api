@@ -10,6 +10,7 @@ const upload = require("../middleware/upload");
 const createUser = require("../utils/createUser");
 const updateUser = require("../utils/updateUser");
 const AppError = require("../utils/AppError");
+const { populate } = require("../models/Post");
 
 const adminRoute = express.Router();
 
@@ -20,37 +21,46 @@ adminRoute.get("/users", authenticate, adminAuth, async (req, res, next) => {
       .select("-password")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ success: true, message: "Data fetched successfully", data });
+    res
+      .status(200)
+      .json({ success: true, message: "Data fetched successfully", data });
   } catch (err) {
     next(err);
   }
 });
 
-adminRoute.get("/user/:userId", authenticate, adminAuth, async (req, res, next) => {
-  try {
-    const { userId } = req.params;
-    const user = await User.findById(userId).select("-password");
+adminRoute.get(
+  "/user/:userId",
+  authenticate,
+  adminAuth,
+  async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const user = await User.findById(userId).select("-password");
 
-    if (!user) {
-      throw new AppError("User not found", 404);
+      if (!user) {
+        throw new AppError("User not found", 404);
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Fetched user successfully",
+        user,
+      });
+    } catch (error) {
+      next(error);
     }
-
-    res.status(200).json({
-      success: true,
-      message: "Fetched user successfully",
-      user,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 adminRoute.post("/user", authenticate, adminAuth, async (req, res, next) => {
   try {
     signupDataValidation(req);
 
     const newUser = await createUser(req);
-    res.status(201).json({ success: true, message: "User created successfully", newUser });
+    res
+      .status(201)
+      .json({ success: true, message: "User created successfully", newUser });
   } catch (err) {
     next(err);
   }
@@ -78,23 +88,28 @@ adminRoute.patch(
   },
 );
 
-adminRoute.delete("/user/:id", authenticate, adminAuth, async (req, res, next) => {
-  try {
-    const userId = req.params.id;
+adminRoute.delete(
+  "/user/:id",
+  authenticate,
+  adminAuth,
+  async (req, res, next) => {
+    try {
+      const userId = req.params.id;
 
-    const deletedUser = await User.findByIdAndDelete(userId);
+      const deletedUser = await User.findByIdAndDelete(userId);
 
-    if (!deletedUser) {
-      new AppError("User not found", 404);
+      if (!deletedUser) {
+        new AppError("User not found", 404);
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "User deleted successfully",
+      });
+    } catch (error) {
+      next(error);
     }
-
-    res.status(200).json({
-      success: true,
-      message: "User deleted successfully",
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 module.exports = adminRoute;

@@ -9,7 +9,10 @@ const updateUser = async (req, userId) => {
     throw new AppError("User not found", 404);
   }
 
-  if (user.role === "admin") {
+  if (
+    user.role === "admin" &&
+    user._id.toString() !== req.user._id.toString()
+  ) {
     throw new AppError("Unauthorized admin request", 403);
   }
 
