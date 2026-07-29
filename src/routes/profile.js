@@ -4,6 +4,7 @@ const authenticate = require("../middleware/authenticate");
 const upload = require("../middleware/upload");
 const { validateProfileUpdates } = require("../utils/validation");
 const updateUser = require("../utils/updateUser");
+const Like = require("../models/Like");
 
 const profileRouter = express.Router();
 
@@ -35,5 +36,39 @@ profileRouter.patch(
     }
   },
 );
+
+profileRouter.get("/likes", authenticate, async (req, res, next) => {
+  try {
+    const likes = await Like.find({ user: req.user._id })
+      .populate({
+        path: "post",
+        select:
+          "author content images hashtags links likesCount commentsCount createdAt",
+        populate: {
+          path: "author",
+          select: "username profilePicture",
+        },
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const posts = likes
+      .map((like) => like.post)
+      .filter(Boolean) // in case a liked post was deleted
+      .map((post) => ({
+        ...post,
+        isLiked: true,
+      }));
+
+    console.log(posts);
+
+    return res.status(200).json({
+      success: true,
+      posts,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 module.exports = profileRouter;

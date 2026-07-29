@@ -8,6 +8,7 @@ const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
 const postRouter = require("./routes/posts");
 const adminRoute = require("./routes/admin");
+const commentRouter = require("./routes/comment");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +31,7 @@ app.use("/auth", authRouter);
 app.use("/profile", profileRouter);
 app.use("/posts", postRouter);
 app.use("/admin", adminRoute);
+app.use("/comments", commentRouter);
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;

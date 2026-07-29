@@ -65,60 +65,132 @@ postRouter.get("/", authenticate, async (req, res, next) => {
       {
         $sort: { createdAt: -1 },
       },
+
       {
         $lookup: {
           from: "users",
           localField: "author",
           foreignField: "_id",
+          pipeline: [
+            {
+              $project: {
+                username: 1,
+                profilePicture: 1,
+              },
+            },
+          ],
           as: "author",
         },
       },
+
       {
         $unwind: "$author",
       },
+
       {
         $lookup: {
           from: "likes",
-          localField: "_id",
-          foreignField: "post",
-          as: "likes",
+          let: { postId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$post", "$$postId"],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                count: { $sum: 1 },
+                users: { $push: "$user" },
+              },
+            },
+          ],
+          as: "likesData",
         },
       },
+
+      {
+        $lookup: {
+          from: "comments",
+          let: { postId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$post", "$$postId"],
+                },
+              },
+            },
+            {
+              $count: "count",
+            },
+          ],
+          as: "commentsData",
+        },
+      },
+
+      {
+        $addFields: {
+          likesCount: {
+            $ifNull: [
+              {
+                $first: "$likesData.count",
+              },
+              0,
+            ],
+          },
+
+          commentsCount: {
+            $ifNull: [
+              {
+                $first: "$commentsData.count",
+              },
+              0,
+            ],
+          },
+
+          isLiked: {
+            $in: [
+              req.user._id,
+              {
+                $ifNull: [
+                  {
+                    $first: "$likesData.users",
+                  },
+                  [],
+                ],
+              },
+            ],
+          },
+        },
+      },
+
       {
         $project: {
-          content: 1,
-          images: 1,
-          hashtags: 1,
-          links: 1,
-          createdAt: 1,
-          updatedAt: 1,
-
-          author: {
-            _id: "$author._id",
-            firstname: "$author.firstname",
-            lastname: "$author.lastname",
-            username: "$author.username",
-            email: "$author.email",
-            profilePicture: "$author.profilePicture",
-            bio: "$author.bio",
-            gender: "$author.gender",
-            age: "$author.age",
-            role: "$author.role",
-          },
-
-          likesCount: {
-            $size: "$likes",
-          },
-          isLiked: {
-            $in: [new mongoose.Types.ObjectId(req.user._id), "$likes.user"],
-          },
+          likesData: 0,
+          commentsData: 0,
         },
       },
     ]);
 
+    const likedPosts = await Like.find({
+      user: req.user._id,
+    }).select("post");
+
+    const likedPostIds = new Set(
+      likedPosts.map((like) => like.post.toString()),
+    );
+
+    const result = posts.map((post) => ({
+      ...post,
+      isLiked: likedPostIds.has(post._id.toString()),
+    }));
+
     res.status(200).json({
       success: true,
-      posts,
+      posts: result,
     });
   } catch (error) {
     next(error);
@@ -135,65 +207,284 @@ postRouter.get("/:userId", authenticate, async (req, res, next) => {
         },
       },
       {
-        $sort: {
-          createdAt: -1,
-        },
+        $sort: { createdAt: -1 },
       },
+
       {
         $lookup: {
           from: "users",
           localField: "author",
           foreignField: "_id",
+          pipeline: [
+            {
+              $project: {
+                username: 1,
+                profilePicture: 1,
+              },
+            },
+          ],
           as: "author",
         },
       },
+
       {
         $unwind: "$author",
       },
+
       {
         $lookup: {
           from: "likes",
-          localField: "_id",
-          foreignField: "post",
-          as: "likes",
+          let: { postId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$post", "$$postId"],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                count: { $sum: 1 },
+                users: { $push: "$user" },
+              },
+            },
+          ],
+          as: "likesData",
         },
       },
+
+      {
+        $lookup: {
+          from: "comments",
+          let: { postId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$post", "$$postId"],
+                },
+              },
+            },
+            {
+              $count: "count",
+            },
+          ],
+          as: "commentsData",
+        },
+      },
+
+      {
+        $addFields: {
+          likesCount: {
+            $ifNull: [
+              {
+                $first: "$likesData.count",
+              },
+              0,
+            ],
+          },
+
+          commentsCount: {
+            $ifNull: [
+              {
+                $first: "$commentsData.count",
+              },
+              0,
+            ],
+          },
+
+          isLiked: {
+            $in: [
+              req.user._id,
+              {
+                $ifNull: [
+                  {
+                    $first: "$likesData.users",
+                  },
+                  [],
+                ],
+              },
+            ],
+          },
+        },
+      },
+
       {
         $project: {
-          content: 1,
-          images: 1,
-          hashtags: 1,
-          links: 1,
-          createdAt: 1,
-          updatedAt: 1,
-
-          author: {
-            _id: "$author._id",
-            firstname: "$author.firstname",
-            lastname: "$author.lastname",
-            username: "$author.username",
-            email: "$author.email",
-            profilePicture: "$author.profilePicture",
-            bio: "$author.bio",
-            gender: "$author.gender",
-            age: "$author.age",
-            role: "$author.role",
-          },
-
-          likesCount: {
-            $size: "$likes",
-          },
-          isLiked: {
-            $in: [new mongoose.Types.ObjectId(req.user._id), "$likes.user"],
-          },
+          likesData: 0,
+          commentsData: 0,
         },
       },
     ]);
+
+    const likedPosts = await Like.find({
+      user: req.user._id,
+    }).select("post");
+
+    const likedPostIds = new Set(
+      likedPosts.map((like) => like.post.toString()),
+    );
+
+    const result = posts.map((post) => ({
+      ...post,
+      isLiked: likedPostIds.has(post._id.toString()),
+    }));
+
     res.status(200).json({
       success: true,
-      posts,
+      posts: result,
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+postRouter.get("/details/:postId", authenticate, async (req, res, next) => {
+  try {
+    const { postId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      throw new Error("Inavlid Id Type", 403);
+    }
+
+    const post = await Post.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(postId),
+        },
+      },
+
+      {
+        $lookup: {
+          from: "users",
+          localField: "author",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $project: {
+                username: 1,
+                profilePicture: 1,
+              },
+            },
+          ],
+          as: "author",
+        },
+      },
+
+      {
+        $unwind: "$author",
+      },
+
+      {
+        $lookup: {
+          from: "likes",
+          let: {
+            postId: "$_id",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$post", "$$postId"],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                count: {
+                  $sum: 1,
+                },
+                users: {
+                  $push: "$user",
+                },
+              },
+            },
+          ],
+          as: "likesData",
+        },
+      },
+
+      {
+        $lookup: {
+          from: "comments",
+          let: {
+            postId: "$_id",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$post", "$$postId"],
+                },
+              },
+            },
+            {
+              $count: "count",
+            },
+          ],
+          as: "commentsData",
+        },
+      },
+
+      {
+        $addFields: {
+          likesCount: {
+            $ifNull: [
+              {
+                $first: "$likesData.count",
+              },
+              0,
+            ],
+          },
+
+          commentsCount: {
+            $ifNull: [
+              {
+                $first: "$commentsData.count",
+              },
+              0,
+            ],
+          },
+
+          isLiked: {
+            $in: [
+              req.user._id,
+              {
+                $ifNull: [
+                  {
+                    $first: "$likesData.users",
+                  },
+                  [],
+                ],
+              },
+            ],
+          },
+        },
+      },
+
+      {
+        $project: {
+          likesData: 0,
+          commentsData: 0,
+        },
+      },
+    ]);
+
+    const postDetails = post[0];
+
+    if (!postDetails) {
+      throw new AppError("Post not found", 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      post: postDetails,
+    });
+  } catch (error) {
+    console.log(error);
     next(error);
   }
 });
@@ -247,11 +538,21 @@ postRouter.post("/:postId/like", authenticate, async (req, res, next) => {
 
     if (existingLike) {
       await existingLike.deleteOne();
+      await Post.findByIdAndUpdate(postId, {
+        $inc: {
+          likesCount: -1,
+        },
+      });
       liked = false;
     } else {
       await Like.create({
         user: userId,
         post: postId,
+      });
+      await Post.findByIdAndUpdate(postId, {
+        $inc: {
+          likesCount: 1,
+        },
       });
       liked = true;
     }
@@ -264,34 +565,5 @@ postRouter.post("/:postId/like", authenticate, async (req, res, next) => {
     next(err);
   }
 });
-
-// postRouter.get("/:postId/likes", authenticate, async (req, res, next) => {
-//   try {
-//     const { postId } = req.params;
-//     const { _id: userId } = req.user;
-
-//     const post = await Post.findById(postId);
-
-//     if (!post) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Post not found.",
-//       });
-//     }
-
-//     const [likesCount, existingLike] = await Promise.all([
-//       Like.countDocuments({ post: postId }),
-//       Like.findOne({ post: postId, user: userId }),
-//     ]);
-
-//     return res.status(200).json({
-//       success: true,
-//       likesCount,
-//       liked: !!existingLike,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// });
 
 module.exports = postRouter;
