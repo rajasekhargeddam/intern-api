@@ -25,11 +25,10 @@ commentRouter.post("/:postId", authenticate, async (req, res, next) => {
       content,
     });
 
-    await Post.findByIdAndUpdate(postId, {
-      $inc: {
-        commentsCount: 1,
-      },
-    });
+    await comment.populate(
+      "user",
+      "username profilePicture firstname lastname",
+    );
 
     res.status(201).json({
       success: true,
@@ -244,5 +243,27 @@ commentRouter.get(
     }
   },
 );
+
+commentRouter.delete("/:commentId", authenticate, async (req, res, next) => {
+  try {
+    const { commentId } = req.params;
+
+    const comment = await Comment.findOneAndDelete({
+      _id: commentId,
+      user: req.user._id,
+    });
+
+    if (!comment) {
+      throw new AppError("Comment not found.", 404);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Comment deleted successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 module.exports = commentRouter;
