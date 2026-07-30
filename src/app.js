@@ -9,6 +9,8 @@ const profileRouter = require("./routes/profile");
 const postRouter = require("./routes/posts");
 const adminRoute = require("./routes/admin");
 const commentRouter = require("./routes/comment");
+const connectionRouter = require("./routes/connections");
+const userRouter = require("./routes/users");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +34,8 @@ app.use("/profile", profileRouter);
 app.use("/posts", postRouter);
 app.use("/admin", adminRoute);
 app.use("/comments", commentRouter);
+app.use("/connections", connectionRouter);
+app.use("/users", userRouter);
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
