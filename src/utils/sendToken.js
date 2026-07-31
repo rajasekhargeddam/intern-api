@@ -1,7 +1,16 @@
 const jwt = require("jsonwebtoken");
+const Connection = require("../models/Connection");
 
-const sanitizeUser = (user) => {
+const sanitizeUser = async (user) => {
   const { password, ...sanitizedUser } = user.toObject();
+  const connectionsCount = await Connection.countDocuments({
+    status: "accepted",
+    $or: [
+      { sender: user._id },
+      { receiver: user._id },
+    ],
+  });
+  sanitizedUser.connectionsCount = connectionsCount;
   return sanitizedUser;
 };
 
@@ -18,7 +27,7 @@ const sendToken = async (user, res) => {
   return res.status(201).json({
     message: "Authentication successful",
     success: true,
-    user: sanitizeUser(user),
+    user: await sanitizeUser(user),
   });
 };
 

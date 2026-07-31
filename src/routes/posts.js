@@ -59,11 +59,70 @@ postRouter.post(
   },
 );
 
+postRouter.patch(
+  "/:postId",
+  authenticate,
+  upload.none(),
+  async (req, res, next) => {
+    try {
+      postsDataValidation(req);
+      console.log("api call");
+      const { postId } = req.params;
+      const { content } = req.body;
+
+      const hashtags = (content.match(/#\w+/g) || []).map((tag) =>
+        tag.substring(1).toLowerCase(),
+      );
+
+      const links = content.match(/https?:\/\/[^\s]+/g) || [];
+
+      const post = await Post.findOneAndUpdate(
+        {
+          _id: postId,
+          author: req.user._id, // only owner can edit
+        },
+        {
+          content,
+          hashtags,
+          links,
+        },
+        {
+          new: true,
+          runValidators: true,
+        },
+      );
+
+      if (!post) {
+        throw new AppError("Post not found", 404);
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Post updated successfully",
+        post,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 postRouter.get("/", authenticate, async (req, res, next) => {
   try {
+    const limit = Number(req.query.limit) || 10;
+    const offset = Number(req.query.offset) || 0;
+
     const posts = await Post.aggregate([
       {
         $sort: { createdAt: -1 },
+      },
+
+      {
+        $skip: offset,
+      },
+
+      {
+        $limit: limit + 1, // fetch one extra post to know if more exist
       },
 
       {
@@ -175,22 +234,17 @@ postRouter.get("/", authenticate, async (req, res, next) => {
       },
     ]);
 
-    const likedPosts = await Like.find({
-      user: req.user._id,
-    }).select("post");
+    const hasMore = posts.length > limit;
 
-    const likedPostIds = new Set(
-      likedPosts.map((like) => like.post.toString()),
-    );
-
-    const result = posts.map((post) => ({
-      ...post,
-      isLiked: likedPostIds.has(post._id.toString()),
-    }));
+    if (hasMore) {
+      posts.pop();
+    }
 
     res.status(200).json({
       success: true,
-      posts: result,
+      posts,
+      hasMore,
+      nextOffset: offset + posts.length,
     });
   } catch (error) {
     next(error);
@@ -200,14 +254,29 @@ postRouter.get("/", authenticate, async (req, res, next) => {
 postRouter.get("/:userId", authenticate, async (req, res, next) => {
   try {
     const { userId } = req.params;
+
+    const limit = Number(req.query.limit) || 10;
+    const offset = Number(req.query.offset) || 0;
+
     const posts = await Post.aggregate([
       {
         $match: {
           author: new mongoose.Types.ObjectId(userId),
         },
       },
+
       {
-        $sort: { createdAt: -1 },
+        $sort: {
+          createdAt: -1,
+        },
+      },
+
+      {
+        $skip: offset,
+      },
+
+      {
+        $limit: limit + 1,
       },
 
       {
@@ -319,22 +388,17 @@ postRouter.get("/:userId", authenticate, async (req, res, next) => {
       },
     ]);
 
-    const likedPosts = await Like.find({
-      user: req.user._id,
-    }).select("post");
+    const hasMore = posts.length > limit;
 
-    const likedPostIds = new Set(
-      likedPosts.map((like) => like.post.toString()),
-    );
-
-    const result = posts.map((post) => ({
-      ...post,
-      isLiked: likedPostIds.has(post._id.toString()),
-    }));
+    if (hasMore) {
+      posts.pop();
+    }
 
     res.status(200).json({
       success: true,
-      posts: result,
+      posts,
+      hasMore,
+      nextOffset: offset + posts.length,
     });
   } catch (error) {
     next(error);

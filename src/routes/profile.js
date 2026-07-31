@@ -5,16 +5,29 @@ const upload = require("../middleware/upload");
 const { validateProfileUpdates } = require("../utils/validation");
 const updateUser = require("../utils/updateUser");
 const Like = require("../models/Like");
+const Connection = require("../models/Connection");
 
 const profileRouter = express.Router();
 
-profileRouter.get("/me", authenticate, (req, res) => {
-  const { user } = req;
-  const { password, ...userDetails } = user;
-  res.status(200).json({
-    success: true,
-    user: userDetails,
-  });
+profileRouter.get("/me", authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { password, ...userDetails } = req.user;
+
+    const connectionsCount = await Connection.countDocuments({
+      status: "accepted",
+      $or: [
+        { sender: userId },
+        { receiver: userId },
+      ],
+    });
+    userDetails.connectionsCount = connectionsCount;
+
+    res.status(200).json({
+      success: true,
+      user: userDetails,
+    });
+  } catch (error) { next(error) }
 });
 
 profileRouter.patch(
@@ -70,5 +83,13 @@ profileRouter.get("/likes", authenticate, async (req, res, next) => {
     next(error);
   }
 });
+
+profileRouter.get("/notification/count", authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const notificationCount = await Connection.countDocuments({ receiver: userId, status: "pending" })
+    res.status(200).json({ success: true, notificationCount })
+  } catch (error) { next(error) }
+})
 
 module.exports = profileRouter;
