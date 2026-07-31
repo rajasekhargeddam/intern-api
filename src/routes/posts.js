@@ -602,21 +602,11 @@ postRouter.post("/:postId/like", authenticate, async (req, res, next) => {
 
     if (existingLike) {
       await existingLike.deleteOne();
-      await Post.findByIdAndUpdate(postId, {
-        $inc: {
-          likesCount: -1,
-        },
-      });
       liked = false;
     } else {
       await Like.create({
         user: userId,
         post: postId,
-      });
-      await Post.findByIdAndUpdate(postId, {
-        $inc: {
-          likesCount: 1,
-        },
       });
       liked = true;
     }
