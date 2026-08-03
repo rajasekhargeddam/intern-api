@@ -35,4 +35,20 @@ const commentSchema = new Schema(
   },
 );
 
+commentSchema.pre(
+  "deleteOne",
+  { document: true, query: false },
+  async function () {
+    const Comment = mongoose.model("Comment");
+
+    const children = await Comment.find({
+      parentComment: this._id,
+    });
+
+    await Promise.all(
+      children.map(child => child.deleteOne())
+    );
+  }
+);
+
 module.exports = model("Comment", commentSchema);

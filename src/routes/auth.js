@@ -22,8 +22,9 @@ authRouter.post("/login", async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
+
     if (!user || !(await user.comparePassword(password))) {
-      new AppError("Invalid Credentials", 401);
+      throw new AppError("Invalid Credentials", 401);
     }
 
     return sendToken(user, res);

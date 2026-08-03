@@ -2,14 +2,28 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 const Post = require("../models/Post");
-const authenticate = require("../middleware/authenticate");
-const { postsDataValidation } = require("../utils/validation");
-const upload = require("../middleware/upload");
-const uploadToCloudinary = require("../utils/uploadToCloudinary");
-const AppError = require("../utils/AppError");
 const Like = require("../models/Like");
+const authenticate = require("../middleware/authenticate");
+const upload = require("../middleware/upload");
+const AppError = require("../utils/AppError");
+const uploadToCloudinary = require("../utils/uploadToCloudinary");
+const { postsDataValidation } = require("../utils/validation");
+const {
+  buildPostAggregation,
+  buildPaginationMeta,
+} = require("../utils/postAggregation");
 
 const postRouter = express.Router();
+
+const extractPostMetadata = (content = "") => {
+  const hashtags = (content.match(/#\w+/g) || []).map((tag) =>
+    tag.substring(1).toLowerCase(),
+  );
+
+  const links = content.match(/https?:\/\/[^\s]+/g) || [];
+
+  return { hashtags, links };
+};
 
 postRouter.post(
   "/",
@@ -21,6 +35,7 @@ postRouter.post(
 
       const { content } = req.body;
       const author = req.user._id;
+      const { hashtags, links } = extractPostMetadata(content);
 
       let images = [];
 
@@ -33,12 +48,6 @@ postRouter.post(
           }),
         );
       }
-
-      const hashtags = (content.match(/#\w+/g) || []).map((tag) =>
-        tag.substring(1),
-      );
-
-      const links = content.match(/https?:\/\/[^\s]+/g) || [];
 
       const post = await Post.create({
         author,
@@ -66,20 +75,15 @@ postRouter.patch(
   async (req, res, next) => {
     try {
       postsDataValidation(req);
-      console.log("api call");
+
       const { postId } = req.params;
       const { content } = req.body;
-
-      const hashtags = (content.match(/#\w+/g) || []).map((tag) =>
-        tag.substring(1).toLowerCase(),
-      );
-
-      const links = content.match(/https?:\/\/[^\s]+/g) || [];
+      const { hashtags, links } = extractPostMetadata(content);
 
       const post = await Post.findOneAndUpdate(
         {
           _id: postId,
-          author: req.user._id, // only owner can edit
+          author: req.user._id,
         },
         {
           content,
@@ -112,293 +116,19 @@ postRouter.get("/", authenticate, async (req, res, next) => {
     const limit = Number(req.query.limit) || 10;
     const offset = Number(req.query.offset) || 0;
 
-    const posts = await Post.aggregate([
-      {
-        $sort: { createdAt: -1 },
-      },
+    const posts = await Post.aggregate(
+      buildPostAggregation({
+        userId: req.user._id,
+        limit,
+        offset,
+      }),
+    );
 
-      {
-        $skip: offset,
-      },
-
-      {
-        $limit: limit + 1, // fetch one extra post to know if more exist
-      },
-
-      {
-        $lookup: {
-          from: "users",
-          localField: "author",
-          foreignField: "_id",
-          pipeline: [
-            {
-              $project: {
-                username: 1,
-                profilePicture: 1,
-              },
-            },
-          ],
-          as: "author",
-        },
-      },
-
-      {
-        $unwind: "$author",
-      },
-
-      {
-        $lookup: {
-          from: "likes",
-          let: { postId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: ["$post", "$$postId"],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                count: { $sum: 1 },
-                users: { $push: "$user" },
-              },
-            },
-          ],
-          as: "likesData",
-        },
-      },
-
-      {
-        $lookup: {
-          from: "comments",
-          let: { postId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: ["$post", "$$postId"],
-                },
-              },
-            },
-            {
-              $count: "count",
-            },
-          ],
-          as: "commentsData",
-        },
-      },
-
-      {
-        $addFields: {
-          likesCount: {
-            $ifNull: [
-              {
-                $first: "$likesData.count",
-              },
-              0,
-            ],
-          },
-
-          commentsCount: {
-            $ifNull: [
-              {
-                $first: "$commentsData.count",
-              },
-              0,
-            ],
-          },
-
-          isLiked: {
-            $in: [
-              req.user._id,
-              {
-                $ifNull: [
-                  {
-                    $first: "$likesData.users",
-                  },
-                  [],
-                ],
-              },
-            ],
-          },
-        },
-      },
-
-      {
-        $project: {
-          likesData: 0,
-          commentsData: 0,
-        },
-      },
-    ]);
-
-    const hasMore = posts.length > limit;
-
-    if (hasMore) {
-      posts.pop();
-    }
+    const pagination = buildPaginationMeta(posts, limit, offset);
 
     res.status(200).json({
       success: true,
-      posts,
-      hasMore,
-      nextOffset: offset + posts.length,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-postRouter.get("/:userId", authenticate, async (req, res, next) => {
-  try {
-    const { userId } = req.params;
-
-    const limit = Number(req.query.limit) || 10;
-    const offset = Number(req.query.offset) || 0;
-
-    const posts = await Post.aggregate([
-      {
-        $match: {
-          author: new mongoose.Types.ObjectId(userId),
-        },
-      },
-
-      {
-        $sort: {
-          createdAt: -1,
-        },
-      },
-
-      {
-        $skip: offset,
-      },
-
-      {
-        $limit: limit + 1,
-      },
-
-      {
-        $lookup: {
-          from: "users",
-          localField: "author",
-          foreignField: "_id",
-          pipeline: [
-            {
-              $project: {
-                username: 1,
-                profilePicture: 1,
-              },
-            },
-          ],
-          as: "author",
-        },
-      },
-
-      {
-        $unwind: "$author",
-      },
-
-      {
-        $lookup: {
-          from: "likes",
-          let: { postId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: ["$post", "$$postId"],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                count: { $sum: 1 },
-                users: { $push: "$user" },
-              },
-            },
-          ],
-          as: "likesData",
-        },
-      },
-
-      {
-        $lookup: {
-          from: "comments",
-          let: { postId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: ["$post", "$$postId"],
-                },
-              },
-            },
-            {
-              $count: "count",
-            },
-          ],
-          as: "commentsData",
-        },
-      },
-
-      {
-        $addFields: {
-          likesCount: {
-            $ifNull: [
-              {
-                $first: "$likesData.count",
-              },
-              0,
-            ],
-          },
-
-          commentsCount: {
-            $ifNull: [
-              {
-                $first: "$commentsData.count",
-              },
-              0,
-            ],
-          },
-
-          isLiked: {
-            $in: [
-              req.user._id,
-              {
-                $ifNull: [
-                  {
-                    $first: "$likesData.users",
-                  },
-                  [],
-                ],
-              },
-            ],
-          },
-        },
-      },
-
-      {
-        $project: {
-          likesData: 0,
-          commentsData: 0,
-        },
-      },
-    ]);
-
-    const hasMore = posts.length > limit;
-
-    if (hasMore) {
-      posts.pop();
-    }
-
-    res.status(200).json({
-      success: true,
-      posts,
-      hasMore,
-      nextOffset: offset + posts.length,
+      ...pagination,
     });
   } catch (error) {
     next(error);
@@ -410,132 +140,18 @@ postRouter.get("/details/:postId", authenticate, async (req, res, next) => {
     const { postId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(postId)) {
-      throw new Error("Inavlid Id Type", 403);
+      throw new AppError("Invalid Id Type", 400);
     }
 
-    const post = await Post.aggregate([
-      {
-        $match: {
+    const post = await Post.aggregate(
+      buildPostAggregation({
+        matchStage: {
           _id: new mongoose.Types.ObjectId(postId),
         },
-      },
-
-      {
-        $lookup: {
-          from: "users",
-          localField: "author",
-          foreignField: "_id",
-          pipeline: [
-            {
-              $project: {
-                username: 1,
-                profilePicture: 1,
-              },
-            },
-          ],
-          as: "author",
-        },
-      },
-
-      {
-        $unwind: "$author",
-      },
-
-      {
-        $lookup: {
-          from: "likes",
-          let: {
-            postId: "$_id",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: ["$post", "$$postId"],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                count: {
-                  $sum: 1,
-                },
-                users: {
-                  $push: "$user",
-                },
-              },
-            },
-          ],
-          as: "likesData",
-        },
-      },
-
-      {
-        $lookup: {
-          from: "comments",
-          let: {
-            postId: "$_id",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: ["$post", "$$postId"],
-                },
-              },
-            },
-            {
-              $count: "count",
-            },
-          ],
-          as: "commentsData",
-        },
-      },
-
-      {
-        $addFields: {
-          likesCount: {
-            $ifNull: [
-              {
-                $first: "$likesData.count",
-              },
-              0,
-            ],
-          },
-
-          commentsCount: {
-            $ifNull: [
-              {
-                $first: "$commentsData.count",
-              },
-              0,
-            ],
-          },
-
-          isLiked: {
-            $in: [
-              req.user._id,
-              {
-                $ifNull: [
-                  {
-                    $first: "$likesData.users",
-                  },
-                  [],
-                ],
-              },
-            ],
-          },
-        },
-      },
-
-      {
-        $project: {
-          likesData: 0,
-          commentsData: 0,
-        },
-      },
-    ]);
+        userId: req.user._id,
+        includePagination: false,
+      }),
+    );
 
     const postDetails = post[0];
 
@@ -548,7 +164,34 @@ postRouter.get("/details/:postId", authenticate, async (req, res, next) => {
       post: postDetails,
     });
   } catch (error) {
-    console.log(error);
+    next(error);
+  }
+});
+
+postRouter.get("/:userId", authenticate, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const limit = Number(req.query.limit) || 10;
+    const offset = Number(req.query.offset) || 0;
+
+    const posts = await Post.aggregate(
+      buildPostAggregation({
+        matchStage: {
+          author: new mongoose.Types.ObjectId(userId),
+        },
+        userId: req.user._id,
+        limit,
+        offset,
+      }),
+    );
+
+    const pagination = buildPaginationMeta(posts, limit, offset);
+
+    res.status(200).json({
+      success: true,
+      ...pagination,
+    });
+  } catch (error) {
     next(error);
   }
 });
@@ -557,12 +200,12 @@ postRouter.delete("/:postId", authenticate, async (req, res, next) => {
   try {
     const { postId } = req.params;
     const post = await Post.findById(postId).populate("author", "role");
+
     if (!post) {
-      throw new AppError("Post Not Found", 403);
+      throw new AppError("Post Not Found", 404);
     }
 
     const isOwner = post.author._id.toString() === req.user._id.toString();
-
     const isAdminDeletingUser =
       req.user.role === "admin" && post.author.role === "user";
 
@@ -574,9 +217,10 @@ postRouter.delete("/:postId", authenticate, async (req, res, next) => {
 
     await post.deleteOne();
 
-    res
-      .status(200)
-      .json({ success: true, message: "Post deleted successfull" });
+    res.status(200).json({
+      success: true,
+      message: "Post deleted successfully",
+    });
   } catch (error) {
     next(error);
   }
@@ -590,7 +234,7 @@ postRouter.post("/:postId/like", authenticate, async (req, res, next) => {
     const post = await Post.findById(postId);
 
     if (!post) {
-      throw new AppError("Post Not Found", 403);
+      throw new AppError("Post Not Found", 404);
     }
 
     const existingLike = await Like.findOne({

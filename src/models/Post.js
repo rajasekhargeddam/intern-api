@@ -18,22 +18,19 @@ const postSchema = new mongoose.Schema(
       default: "",
     },
 
-    images: {
-      type: [
-        {
+    images: [
+      {
+        imageUrl: {
           type: String,
-          validate: {
-            validator: (url) => validator.isURL(url),
-            message: "Invalid image URL",
-          },
+          required: true,
         },
-      ],
-      default: [],
-      validate: {
-        validator: (images) => images.length <= 4,
-        message: "A post can contain a maximum of 4 images.",
+        publicId: {
+          type: String,
+          required: true,
+        },
       },
-    },
+    ],
+
 
     hashtags: {
       type: [
@@ -70,6 +67,20 @@ const postSchema = new mongoose.Schema(
   {
     timestamps: true,
   },
+);
+
+postSchema.pre(
+  "deleteOne",
+  { document: true, query: false },
+  async function () {
+    const Like = require("./Like");
+    const Comment = require("./Comment");
+
+    await Promise.all([
+      Like.deleteMany({ post: this._id }),
+      Comment.deleteMany({ post: this._id }),
+    ]);
+  }
 );
 
 module.exports = mongoose.model("Post", postSchema);

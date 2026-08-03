@@ -35,10 +35,14 @@ connectionRouter.get("/:userId", authenticate, async (req, res, next) => {
       .populate("receiver", "username firstname lastname  profilePicture");
 
     const users = connections.map((connection) =>
-      connection.sender._id.equals(userId)
+    ({
+      _id: connection._id, user: connection.sender._id.equals(userId)
         ? connection.receiver
-        : connection.sender,
+        : connection.sender
+    })
     );
+
+    console.log(users);
 
     res.status(200).json({
       success: true,
@@ -137,7 +141,7 @@ connectionRouter.patch(
 );
 
 connectionRouter.delete(
-  "/:connectionId/reject",
+  "/:connectionId",
   authenticate,
   async (req, res, next) => {
     try {
@@ -147,7 +151,7 @@ connectionRouter.delete(
         throw new AppError("Connection request not found.", 404);
       }
 
-      if (!connection.receiver.equals(req.user._id)) {
+      if (!connection.receiver.equals(req.user._id) && !connection.sender.equals(req.user._id)) {
         throw new Error("Unauthorized.", 400);
       }
 
