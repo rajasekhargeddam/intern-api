@@ -18,19 +18,22 @@ const postSchema = new mongoose.Schema(
       default: "",
     },
 
-    images: [
-      {
-        imageUrl: {
+    images: {
+      type: [
+        {
           type: String,
-          required: true,
+          validate: {
+            validator: (url) => validator.isURL(url),
+            message: "Invalid image URL",
+          },
         },
-        publicId: {
-          type: String,
-          required: true,
-        },
+      ],
+      default: [],
+      validate: {
+        validator: (images) => images.length <= 4,
+        message: "A post can contain a maximum of 4 images.",
       },
-    ],
-
+    },
 
     hashtags: {
       type: [
