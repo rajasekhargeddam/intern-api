@@ -21,6 +21,7 @@ app.use(
       "http://localhost:5173",
       "https://intern-nine-sable.vercel.app",
       "https://intern-bt4no3a4c-geddam-ganesh-rajasekhars-projects.vercel.app",
+      "http://54.206.126.238",
     ],
     credentials: true,
   }),
