@@ -8,6 +8,7 @@ const upload = require("../middleware/upload");
 const AppError = require("../utils/AppError");
 const uploadToCloudinary = require("../utils/uploadToCloudinary");
 const { postsDataValidation } = require("../utils/validation");
+const cloudinary = require("../config/cloudinary.js");
 const {
   buildPostAggregation,
   buildPaginationMeta,
@@ -44,7 +45,10 @@ postRouter.post(
           req.files.map(async (file) => {
             const result = await uploadToCloudinary(file.buffer, "post-images");
 
-            return result.secure_url;
+            return {
+              url: result.secure_url,
+              publicId: result.public_id,
+            };
           }),
         );
       }
@@ -214,6 +218,13 @@ postRouter.delete("/:postId", authenticate, async (req, res, next) => {
         message: "Unauthorized",
       });
     }
+
+
+    await Promise.all(
+      post.images.map((image) =>
+        cloudinary.uploader.destroy(image.publicId)
+      )
+    );
 
     await post.deleteOne();
 

@@ -41,6 +41,7 @@ const buildPostAggregation = ({
             $project: {
               username: 1,
               profilePicture: 1,
+              role: 1,
             },
           },
         ],

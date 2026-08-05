@@ -21,10 +21,13 @@ const postSchema = new mongoose.Schema(
     images: {
       type: [
         {
-          type: String,
-          validate: {
-            validator: (url) => validator.isURL(url),
-            message: "Invalid image URL",
+          url: {
+            type: String,
+            required: true,
+          },
+          publicId: {
+            type: String,
+            required: true,
           },
         },
       ],
