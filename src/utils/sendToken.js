@@ -19,7 +19,7 @@ const sendToken = async (user, res) => {
 
   res.cookie("token", token, {
     httpOnly: true,
-    secure: true,
+    secure: false,
     sameSite: "none",
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
