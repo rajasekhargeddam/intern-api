@@ -1,4 +1,5 @@
 const express = require("express");
+const http = require("http");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 
@@ -11,6 +12,8 @@ const adminRoute = require("./routes/admin");
 const commentRouter = require("./routes/comment");
 const connectionRouter = require("./routes/connections");
 const userRouter = require("./routes/users");
+const chatRouter = require("./routes/chat");
+const initalizeSocket = require("./utils/socket");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +40,11 @@ app.use("/admin", adminRoute);
 app.use("/comments", commentRouter);
 app.use("/connections", connectionRouter);
 app.use("/users", userRouter);
+app.use("/chat", chatRouter);
+
+const server = http.createServer(app);
+
+initalizeSocket(server);
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
@@ -49,7 +57,7 @@ app.use((err, req, res, next) => {
 
 connectDB()
   .then(() => {
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log("server is running at http://localhost:3000");
     });
   })
