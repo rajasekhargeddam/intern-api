@@ -37,11 +37,18 @@ const initalizeSocket = (server) => {
                 }
 
                 chat.messages.push({ sender: userId, text });
-
                 await chat.save();
 
+                const lastMessage = chat.messages[chat.messages.length - 1];
                 const roomId = [userId, targetUserId].sort().join("-");
-                io.to(roomId).emit("receiveMessage", { sender: userId, text });
+                const emittedMessage = {
+                    _id: lastMessage?._id?.toString?.() || lastMessage?._id,
+                    sender: userId,
+                    text,
+                    createdAt: lastMessage?.createdAt,
+                };
+
+                io.to(roomId).emit("receiveMessage", emittedMessage);
 
             } catch (error) {
                 console.error("Error sending message:", error);
